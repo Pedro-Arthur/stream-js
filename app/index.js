@@ -1,24 +1,37 @@
 const API_URL = "http://localhost:3000";
+let counter = 0;
 
 async function consumeApi(signal) {
   const response = await fetch(API_URL, {
     signal,
   });
 
-  let counter = 0;
-
   const reader = response.body
     .pipeThrough(new TextDecoderStream())
-    .pipeThrough(parseNDJson())
-    .pipeTo(
-      new WritableStream({
-        write(chunk) {
-          console.log(++counter, "chunk", chunk);
-        },
-      })
-    );
+    .pipeThrough(parseNDJson());
 
   return reader;
+}
+
+function appendToHtml(element) {
+  return new WritableStream({
+    write({ title, description, url_anime }) {
+      const card = `
+        <article>
+          <div class="text">
+            <h3>[${++counter}] ${title}</h3>
+            <p>${description.slice(0, 100)}</p>
+            <a href="${url_anime}">URL do anime</a>
+          </div>
+        </article>
+      `;
+
+      element.innerHTML += card;
+    },
+    abort(reason) {
+      console.log("aborted!", reason);
+    },
+  });
 }
 
 function parseNDJson() {
@@ -43,5 +56,19 @@ function parseNDJson() {
   });
 }
 
-const abortController = new AbortController();
-await consumeApi(abortController.signal);
+const [start, stop, cards] = ["start", "stop", "cards"].map((item) =>
+  document.getElementById(item)
+);
+
+let abortController = new AbortController();
+
+start.addEventListener("click", async () => {
+  const readable = await consumeApi(abortController.signal);
+  readable.pipeTo(appendToHtml(cards));
+});
+
+stop.addEventListener("click", () => {
+  abortController.abort();
+  console.log("aborting...");
+  abortController = new AbortController();
+});

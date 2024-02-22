@@ -43,7 +43,7 @@ createServer(async (request, response) => {
     .pipeTo(
       new WritableStream({
         async write(chunk) {
-          await setTimeout(1000);
+          await setTimeout(200);
           items++;
           response.write(chunk);
         },
